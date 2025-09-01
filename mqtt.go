@@ -46,7 +46,17 @@ func initOutputFolder(topic, jobname string) {
 
 func createLoggerFile(jobname string) {
 	date := time.Now().Format("02-01_15:04")
-	logFile := path.Join(outputDir, "logs", jobname+"_"+date+".log")
+	logDir := path.Join(outputDir, "logs")
+
+	if _, err := os.Stat(logDir); os.IsNotExist(err) {
+		err := os.MkdirAll(logDir, 0755)
+		if err != nil {
+			fmt.Println("Error creating logs directory:", err)
+			return
+		}
+	}
+
+	logFile := path.Join(logDir, jobname+"_"+date+".log")
 	file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		fmt.Println("Error creating logger file:", err)
@@ -54,7 +64,6 @@ func createLoggerFile(jobname string) {
 	}
 	logger = log.New(file, "", log.LstdFlags|log.Llongfile)
 	fmt.Println("Logger file created:", logFile)
-
 }
 
 func ExtractDeviceIdsFromFile(filename string) []string {
