@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"path"
@@ -28,6 +29,7 @@ var (
 	deviceMsgCount = make(map[string]int)
 	baseFolder     string
 	outputDir      = "/mnt/pssd/modhexdump"
+	logger         *log.Logger
 )
 
 func initOutputFolder(topic, jobname string) {
@@ -42,10 +44,23 @@ func initOutputFolder(topic, jobname string) {
 	fmt.Println("Saving CSVs in folder:", baseFolder)
 }
 
+func createLoggerFile(jobname string) {
+	date := time.Now().Format("02-01_15:04")
+	logFile := path.Join(outputDir, "logs", jobname+"_"+date+".log")
+	file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		fmt.Println("Error creating logger file:", err)
+		return
+	}
+	logger = log.New(file, "", log.LstdFlags|log.Llongfile)
+	fmt.Println("Logger file created:", logFile)
+
+}
+
 func ExtractDeviceIdsFromFile(filename string) []string {
 	file, err := os.Open(filename)
 	if err != nil {
-		fmt.Println("Error opening file:", err)
+		logger.Println("Error opening file:", err)
 		return []string{}
 	}
 	defer file.Close()
@@ -53,7 +68,7 @@ func ExtractDeviceIdsFromFile(filename string) []string {
 	reader := csv.NewReader(file)
 	records, err := reader.ReadAll()
 	if err != nil {
-		fmt.Println("Error reading CSV:", err)
+		logger.Println("Error reading CSV:", err)
 		return []string{}
 	}
 
@@ -96,7 +111,7 @@ func appendDataToCSV(filename string, headers []string, records [][]string) erro
 		}
 	}
 
-	fmt.Println("Wrote to CSV:", filename)
+	logger.Println("Wrote to CSV:", filename)
 
 	return nil
 }
@@ -109,12 +124,12 @@ func flushDeviceData(deviceid string) {
 
 	headers, ok := deviceHeaders[deviceid]
 	if !ok {
-		fmt.Println("No headers for device:", deviceid)
+		logger.Println("No headers for device:", deviceid)
 		return
 	}
 
 	if err := appendDataToCSV(deviceid, headers, records); err != nil {
-		fmt.Println("Error writing to CSV:", err)
+		logger.Println("Error writing to CSV:", err)
 	}
 	deviceData[deviceid] = nil
 	deviceMsgCount[deviceid] = 0
@@ -130,8 +145,14 @@ func main() {
 	topic := os.Args[2]
 	jobname := os.Args[3]
 
-	initOutputFolder(topic, jobname)
+	if csvfileName == "" || topic == "" || jobname == "" {
+		fmt.Println("Error: None of the arguments can be empty.")
+		os.Exit(1)
+	}
+	fmt.Println("Job Started: ", jobname)
 
+	initOutputFolder(topic, jobname)
+	createLoggerFile(jobname)
 	deviceIds := ExtractDeviceIdsFromFile(csvfileName)
 
 	wspulleropts := wsmqttrtpuller.NewWsMqttRtPullerOpts("qdev1.buzzenergy.in", 11884)
@@ -142,21 +163,21 @@ func main() {
 
 	statecallback := &wsmqttrtpuller.WsMqttRtPullerStateCallback{
 		Started: func() {
-			fmt.Println("Puller started")
+			logger.Println("Puller started")
 		},
 		Stopped: func() {
 			once.Do(func() {
 				atomic.StoreUint32(&stoppedflag, 1)
-				fmt.Println("Puller stopped")
+				logger.Println("Puller stopped")
 			})
 		},
 	}
 
 	subscribecallback := func(topic []byte, issubscribe bool, isok bool) {
 		if isok {
-			fmt.Printf("Subscribed to topic: %s\n", string(topic))
+			logger.Printf("Subscribed to topic: %s\n", string(topic))
 		} else {
-			fmt.Printf("Failed to subscribe to topic: %s\n", string(topic))
+			logger.Printf("Failed to subscribe to topic: %s\n", string(topic))
 		}
 	}
 
@@ -169,14 +190,14 @@ func main() {
 
 		decompressed, err := snappy.Decode(nil, payload)
 		if err != nil {
-			fmt.Println("Snappy decompression error:", err)
+			logger.Println("Snappy decompression error:", err)
 			return
 		}
 
 		var rawData map[string]interface{}
 		err = json.Unmarshal(decompressed, &rawData)
 		if err != nil {
-			fmt.Println("Error unmarshalling payload:", err)
+			logger.Println("Error unmarshalling payload:", err)
 			return
 		}
 
@@ -217,7 +238,7 @@ func main() {
 			records := deviceData[deviceid]
 
 			if err := appendDataToCSV(deviceid, headers, records); err != nil {
-				fmt.Println("Error writing to CSV:", err)
+				logger.Println("Error writing to CSV:", err)
 				return
 			}
 
@@ -257,4 +278,6 @@ func main() {
 	for deviceid := range deviceData {
 		flushDeviceData(deviceid)
 	}
+	fmt.Println("Flushed device data")
+	fmt.Println("Job Stopped: ", jobname)
 }
