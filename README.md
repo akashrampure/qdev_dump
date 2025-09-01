@@ -1,1 +1,1 @@
-Usage: go run filename.go <csvfile> <topic>
+# Usage: go run filename.go <csvfile> <topic> <jobname>
