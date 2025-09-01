@@ -30,9 +30,9 @@ var (
 	outputDir      = "/mnt/pssd/modhexdump"
 )
 
-func initOutputFolder(topic string) {
+func initOutputFolder(topic, jobname string) {
 	dateFolder := time.Now().Format("2006/01/02")
-	baseFolder = path.Join(outputDir, dateFolder, topic)
+	baseFolder = path.Join(outputDir, dateFolder, topic, jobname)
 
 	err := os.MkdirAll(baseFolder, 0755)
 	if err != nil {
@@ -60,7 +60,7 @@ func ExtractDeviceIdsFromFile(filename string) []string {
 	var deviceIds []string
 	for _, record := range records {
 		if len(record) > 0 {
-			deviceIds = append(deviceIds, record[0])
+			deviceIds = append(deviceIds, strings.TrimSpace(record[0]))
 		}
 	}
 	return deviceIds
@@ -121,15 +121,16 @@ func flushDeviceData(deviceid string) {
 }
 
 func main() {
-	if len(os.Args) < 3 {
-		fmt.Println("Usage: go run filename.go <csvfile> <topic>")
+	if len(os.Args) < 4 {
+		fmt.Println("Usage: go run filename.go <csvfile> <topic> <jobname>")
 		os.Exit(1)
 	}
 
 	csvfileName := os.Args[1]
 	topic := os.Args[2]
+	jobname := os.Args[3]
 
-	initOutputFolder(topic)
+	initOutputFolder(topic, jobname)
 
 	deviceIds := ExtractDeviceIdsFromFile(csvfileName)
 
@@ -164,7 +165,7 @@ func main() {
 		if len(topics) < 3 {
 			return
 		}
-		deviceid := topics[2]
+		deviceid := strings.TrimSpace(topics[2])
 
 		decompressed, err := snappy.Decode(nil, payload)
 		if err != nil {
