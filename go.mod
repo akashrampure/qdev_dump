@@ -4,12 +4,10 @@ go 1.23.4
 
 require (
 	github.com/fabrikiot/wsmqttrt/wsmqttrtpuller v0.0.0-20241123221145-26760dd6f952
-	github.com/go-sql-driver/mysql v1.8.1
 	github.com/golang/snappy v1.0.0
 )
 
 require (
-	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/fabrikiot/goutils/leutils v0.0.0-20240507191543-8cd992cba9d2 // indirect
 	github.com/fabrikiot/wsmqttrt/wsmqttrtmsg v0.0.0-20240731230719-81dc8ea902fd // indirect

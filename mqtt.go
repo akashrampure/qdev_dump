@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/fabrikiot/wsmqttrt/wsmqttrtpuller"
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/golang/snappy"
 )
 
